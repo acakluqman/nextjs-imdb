@@ -1,9 +1,9 @@
 'use client'
 
-import * as React from 'react'
+import { Plus } from 'lucide-react'
 import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
-import { Plus } from 'lucide-react'
+import * as React from 'react'
 import { toast } from 'sonner'
 
 import { AppSidebar } from '@/components/app-sidebar'
@@ -16,8 +16,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card'
+      import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription,CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -215,7 +215,7 @@ export default function Page() {
               })
             ) : !loading && !error ? (
               <div className="col-span-full text-center text-sm text-muted-foreground py-10">
-                No data found for "{selectedType}".
+                No data found for &quot;{selectedType}&quot;.
               </div>
             ) : null}
             {loading &&

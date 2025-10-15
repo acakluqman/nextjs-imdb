@@ -1,23 +1,17 @@
 'use client'
 
-import * as React from 'react'
 import {
+  Bookmark,
+  CassetteTape,
   Clapperboard,
-  Blocks,
-  Calendar,
-  Tv,
-  MessageCircleQuestion,
-  Settings2,
-  Sparkles,
   Gamepad2,
-  Trash2,
-  Video,
+  ListVideo,
+  Tv,
   TvMinimal,
   TvMinimalPlay,
-  CassetteTape,
-  ListVideo,
-  Bookmark,
+  Video,
 } from 'lucide-react'
+import * as React from 'react'
 
 import { NavMain } from '@/components/nav-main'
 import { NavSecondary } from '@/components/nav-secondary'

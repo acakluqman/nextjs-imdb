@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface UseInfiniteScrollOptions<T> {
   fetchFunction: (pageParam: string | null) => Promise<{ data: T[]; nextPageToken: string | null }>
@@ -26,8 +26,8 @@ const useInfiniteScroll = <T>({
       setData((prevData) => [...prevData, ...response.data])
       setPageParam(response.nextPageToken)
       setHasMore(response.nextPageToken !== null)
-    } catch (e: any) {
-      setError(e?.message || 'Failed to fetch data')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to fetch data')
     } finally {
       setLoading(false)
     }
