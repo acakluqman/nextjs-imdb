@@ -1,0 +1,15 @@
+# Ignore artifacts
+build
+dist
+.next
+.turbo
+
+# Ignore dotfiles
+.git
+.vscode
+
+# Ignore node_modules
+node_modules
+
+# Ignore generated files
+coverage
