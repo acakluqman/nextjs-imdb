@@ -13,18 +13,18 @@ import {
 } from 'lucide-react'
 import * as React from 'react'
 
+import Metadata from '@/app/layout'
 import { NavMain } from '@/components/nav-main'
-import { NavSecondary } from '@/components/nav-secondary'
-import { TeamSwitcher } from '@/components/team-switcher'
-import { Sidebar, SidebarContent, SidebarHeader, SidebarRail } from '@/components/ui/sidebar'
+import {
+  Sidebar,
+  SidebarHeader,
+  SidebarRail,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from '@/components/ui/sidebar'
 
 const data = {
-  teams: [
-    {
-      name: 'IMDb',
-      logo: Clapperboard,
-    },
-  ],
   navMain: [
     {
       title: 'Movies',
@@ -80,12 +80,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar className="border-r-0" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <a href="#">
+                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                  <Clapperboard className="size-4" />
+                </div>
+                <div className="flex flex-col gap-0.5 leading-none">
+                  <span className="font-medium">IMDb</span>
+                  <span className="text-xs text-sidebar-foreground dark:text-sidebar-primary-foreground/70">
+                    v1.0.0
+                  </span>
+                </div>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <NavMain items={data.navMain} />
       </SidebarHeader>
-      <SidebarContent>
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
-      </SidebarContent>
       <SidebarRail />
     </Sidebar>
   )

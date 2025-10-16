@@ -20,7 +20,12 @@ import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 /**
  * Types
@@ -69,7 +74,6 @@ type Episode = {
   poster?: string
   runtime?: number
   releaseDate?: string
-  // fallback fields for safety
   title?: string
 }
 
@@ -89,7 +93,9 @@ function getResults(json: any): any {
   return json?.results ?? json?.titles ?? json?.data ?? json?.items ?? json
 }
 
-function toISODate(dateObj?: { year?: number; month?: number; day?: number } | string): string | undefined {
+function toISODate(
+  dateObj?: { year?: number; month?: number; day?: number } | string
+): string | undefined {
   if (!dateObj) return undefined
   if (typeof dateObj === 'string') return dateObj
   if (!dateObj.year || !dateObj.month || !dateObj.day) return undefined
@@ -100,7 +106,7 @@ function formatDateDdMonYyyy(iso?: string): string | undefined {
   if (!iso) return undefined
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  // Example output: 08 Jun 2019
+
   return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
     month: 'short',
@@ -113,7 +119,11 @@ function getTitleFromDetail(item: TitleDetail): string {
 }
 
 function getImageUrlFromDetail(item: TitleDetail): string {
-  return item.primaryImage?.url ?? item.image ?? 'https://placehold.co/300x450?text=No+Image+Found&font=roboto'
+  return (
+    item.primaryImage?.url ??
+    item.image ??
+    'https://placehold.co/300x450?text=No+Image+Found&font=roboto'
+  )
 }
 
 function getYearFromDetail(item: TitleDetail): number | undefined {
@@ -139,7 +149,9 @@ function formatRuntimeHhMm(minutes?: number): string | undefined {
 
 function formatPeopleList(list?: Person[]): string | undefined {
   if (!Array.isArray(list) || list.length === 0) return undefined
-  const names = list.map((p) => p.displayName).filter((n) => typeof n === 'string' && n.trim().length > 0)
+  const names = list
+    .map((p) => p.displayName)
+    .filter((n) => typeof n === 'string' && n.trim().length > 0)
   if (names.length === 0) return undefined
   if (names.length === 1) return names[0]
   if (names.length === 2) return `${names[0]} and ${names[1]}`
@@ -151,27 +163,31 @@ function normalizeEpisode(raw: any): Episode {
     typeof raw?.episodeNumber === 'number'
       ? raw.episodeNumber
       : typeof raw?.episode === 'number'
-      ? raw.episode
-      : typeof raw?.index === 'number'
-      ? raw.index
-      : undefined
+        ? raw.episode
+        : typeof raw?.index === 'number'
+          ? raw.index
+          : undefined
 
   const seasonNumber =
     typeof raw?.seasonNumber === 'number'
       ? raw.seasonNumber
       : typeof raw?.season === 'number'
-      ? raw.season
-      : typeof raw?.season === 'string'
-      ? Number(raw.season)
-      : typeof raw?.seasonIndex === 'number'
-      ? raw.seasonIndex
-      : undefined
+        ? raw.season
+        : typeof raw?.season === 'string'
+          ? Number(raw.season)
+          : typeof raw?.seasonIndex === 'number'
+            ? raw.seasonIndex
+            : undefined
 
   const titleText: { text?: string } | undefined =
     raw?.titleText ??
-    (raw?.title
-      ? { text: (typeof raw.title === 'object' ? raw.title?.title : raw.title) ?? undefined }
-      : undefined)
+    (raw?.primaryTitle
+      ? { text: raw.primaryTitle }
+      : raw?.originalTitle
+        ? { text: raw.originalTitle }
+        : raw?.title
+          ? { text: typeof raw.title === 'object' ? (raw.title?.title ?? undefined) : raw.title }
+          : undefined)
 
   const primaryImage: { url?: string } | undefined =
     raw?.primaryImage ?? (raw?.image ? { url: raw.image } : undefined)
@@ -181,18 +197,18 @@ function normalizeEpisode(raw: any): Episode {
   const plot =
     typeof raw?.plot === 'string'
       ? raw.plot
-      : raw?.plot?.plotText?.plainText ?? raw?.summary ?? undefined
+      : (raw?.plot?.plotText?.plainText ?? raw?.summary ?? undefined)
 
   const runtime =
     typeof raw?.runtimeMinutes === 'number'
       ? raw.runtimeMinutes
       : typeof raw?.runtimeSeconds === 'number'
-      ? Math.round(raw.runtimeSeconds / 60)
-      : typeof raw?.runtime === 'number'
-      ? raw.runtime
-      : typeof raw?.runtime?.minutes === 'number'
-      ? raw.runtime.minutes
-      : undefined
+        ? Math.round(raw.runtimeSeconds / 60)
+        : typeof raw?.runtime === 'number'
+          ? raw.runtime
+          : typeof raw?.runtime?.minutes === 'number'
+            ? raw.runtime.minutes
+            : undefined
 
   const releaseDate = raw?.releaseDate ?? raw?.airDate
 
@@ -222,15 +238,9 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-/**
- * Constants
- */
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.imdbapi.dev').replace(/\/+$/, '')
-const EPISODES_PAGE_SIZE = 12
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+const EPISODES_PAGE_SIZE = 18
 
-/**
- * Page Component
- */
 export default function Page() {
   const { id } = useParams() as { id?: string }
   const router = useRouter()
@@ -287,8 +297,6 @@ export default function Page() {
     void fetchDetail(id)
   }, [id])
 
-  // When seasons loaded, set activeSeason once from query or first available.
-  // Guard to avoid overriding user tab selection before searchParams updates.
   React.useEffect(() => {
     if (seasons.length === 0) return
     if (activeSeason != null) return
@@ -297,8 +305,8 @@ export default function Page() {
     const fromQuery: SeasonId =
       Number.isFinite(fromQueryNum) && seasons.some((s) => String(s) === String(fromQueryNum))
         ? fromQueryNum
-        : seasons.find((s) => String(s) === String(fromQueryRaw)) ?? seasons[0]
-  
+        : (seasons.find((s) => String(s) === String(fromQueryRaw)) ?? seasons[0])
+
     setActiveSeason(fromQuery)
     replaceSeasonInUrl(fromQuery)
   }, [seasons, searchParams, activeSeason])
@@ -342,9 +350,12 @@ export default function Page() {
       const ac = new AbortController()
       seasonsAbortRef.current = ac
 
-      const json = await fetchJson<any>(`${API_BASE}/titles/${encodeURIComponent(titleId)}/seasons`, {
-        signal: ac.signal,
-      })
+      const json = await fetchJson<any>(
+        `${API_BASE}/titles/${encodeURIComponent(titleId)}/seasons`,
+        {
+          signal: ac.signal,
+        }
+      )
       const data = getResults(json)
 
       // Extract list of season ids from various possible shapes
@@ -357,12 +368,12 @@ export default function Page() {
               typeof s?.seasonNumber === 'number'
                 ? s.seasonNumber
                 : typeof s?.season === 'number'
-                ? s.season
-                : typeof s?.season === 'string'
-                ? Number(s.season)
-                : typeof s?.index === 'number'
-                ? s.index
-                : undefined
+                  ? s.season
+                  : typeof s?.season === 'string'
+                    ? Number(s.season)
+                    : typeof s?.index === 'number'
+                      ? s.index
+                      : undefined
             return sn ?? s?.seasonId ?? null
           })
           .filter((x: any) => x != null)
@@ -373,12 +384,12 @@ export default function Page() {
               typeof s?.seasonNumber === 'number'
                 ? s.seasonNumber
                 : typeof s?.season === 'number'
-                ? s.season
-                : typeof s?.season === 'string'
-                ? Number(s.season)
-                : typeof s?.index === 'number'
-                ? s.index
-                : undefined
+                  ? s.season
+                  : typeof s?.season === 'string'
+                    ? Number(s.season)
+                    : typeof s?.index === 'number'
+                      ? s.index
+                      : undefined
             return sn ?? s?.seasonId ?? null
           })
           .filter((x: any) => x != null)
@@ -524,18 +535,6 @@ export default function Page() {
     router.replace(url, { scroll: false })
   }
 
-  function onTabChange(value: string) {
-    const target = seasons.find((s) => String(s) === value)
-    if (target == null) return
-    if (String(activeSeason) === String(target)) return
-    setActiveSeason(target)
-    replaceSeasonInUrl(target)
-    const entry = cacheRef.current.get(target)
-    if (!entry?.fetchedOnce && !entry?.loading) {
-      void fetchSeasonEpisodes(target, null)
-    }
-  }
-
   function onRetryDetail() {
     if (id) {
       detailAbortRef.current?.abort()
@@ -571,7 +570,9 @@ export default function Page() {
 
   const titleText = detail ? getTitleFromDetail(detail) : 'Title'
   const year = detail ? getYearFromDetail(detail) : undefined
-  const posterUrl = detail ? getImageUrlFromDetail(detail) : 'https://placehold.co/300x450?text=No+Image+Found&font=roboto'
+  const posterUrl = detail
+    ? getImageUrlFromDetail(detail)
+    : 'https://placehold.co/300x450?text=No+Image+Found&font=roboto'
 
   return (
     <SidebarProvider>
@@ -607,7 +608,12 @@ export default function Page() {
           {detailError && (
             <div className="bg-destructive/10 text-destructive border-destructive rounded-md border px-3 py-2 text-sm flex items-center justify-between">
               <span>{detailError}</span>
-              <Button variant="outline" size="sm" onClick={onRetryDetail} disabled={detailLoading || seasonsLoading}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRetryDetail}
+                disabled={detailLoading || seasonsLoading}
+              >
                 Retry
               </Button>
             </div>
@@ -619,7 +625,7 @@ export default function Page() {
               <div className="rounded-sm border overflow-hidden">
                 <Skeleton className="aspect-[2/3] w-full" />
               </div>
-              <div className="md:col-span-2 space-y-3">
+              <div className="md:col-span-2 space-y-2">
                 {/* Title */}
                 <Skeleton className="h-8 w-2/3" />
                 {/* Year • Runtime • Rating */}
@@ -636,6 +642,10 @@ export default function Page() {
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-5/6" />
                   <Skeleton className="h-4 w-2/3" />
+                </div>
+                {/* Watchlist button skeleton */}
+                <div className="pt-2">
+                  <Skeleton className="h-8 w-28 rounded-md" />
                 </div>
 
                 {/* Directors / Writers / Stars */}
@@ -661,7 +671,7 @@ export default function Page() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Genres badges */}
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Skeleton className="h-6 w-16 rounded-full" />
@@ -728,8 +738,8 @@ export default function Page() {
                     typeof detail.plot === 'string'
                       ? detail.plot
                       : detail.plot && typeof detail.plot === 'object'
-                      ? detail.plot.plotText?.plainText
-                      : detail.description
+                        ? detail.plot.plotText?.plainText
+                        : detail.description
 
                   const directorsStr = formatPeopleList(detail?.directors)
                   const writersStr = formatPeopleList(detail?.writers)
@@ -738,6 +748,32 @@ export default function Page() {
                   return (
                     <>
                       {p ? <p className="text-sm leading-relaxed">{p}</p> : null}
+
+                      <div className="pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label="Add to watchlist"
+                          className="inline-flex items-center"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            className="w-4 h-4 mr-2"
+                          >
+                            <path
+                              d="M12 5v14M5 12h14"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              fill="none"
+                            />
+                          </svg>
+                          Watchlist
+                        </Button>
+                      </div>
 
                       {directorsStr ? (
                         <div className="mt-4">
@@ -763,7 +799,9 @@ export default function Page() {
                       {Array.isArray(detail?.genres) && detail.genres.length > 0 ? (
                         <div className="flex flex-wrap gap-2 mt-4">
                           {detail.genres.map((genre) => (
-                            <Badge key={genre} variant="secondary">{genre}</Badge>
+                            <Badge key={genre} variant="secondary">
+                              {genre}
+                            </Badge>
                           ))}
                         </div>
                       ) : null}
@@ -778,31 +816,75 @@ export default function Page() {
           {seasonsError && (
             <div className="bg-destructive/10 text-destructive border-destructive rounded-md border px-3 py-2 text-sm flex items-center justify-between">
               <span>{seasonsError}</span>
-              <Button variant="outline" size="sm" onClick={onRetrySeasons} disabled={seasonsLoading}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRetrySeasons}
+                disabled={seasonsLoading}
+              >
                 Retry
               </Button>
             </div>
           )}
 
           {seasonsLoading ? (
-            <div className="space-y-3" aria-busy="true">
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : seasons.length > 0 ? (
-            <Tabs value={String(activeSeason ?? seasons[0] ?? '')} onValueChange={onTabChange}>
-              <div className="overflow-x-auto">
-                <TabsList className="min-w-full">
-                  {seasons.map((s) => (
-                    <TabsTrigger key={String(s)} value={String(s)}>
-                      Season {String(s)}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+            <div className="space-y-4" aria-busy="true">
+              <div className="relative">
+                <div className="flex items-center justify-center h-8 w-8 p-0 absolute left-0 top-1/2 -translate-y-1/2">
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                </div>
+                <div className="mx-10">
+                  <div className="mx-auto flex items-center justify-center">
+                    <Skeleton className="h-8 w-36 rounded-md" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-center h-8 w-8 p-0 absolute right-0 top-1/2 -translate-y-1/2">
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                </div>
               </div>
 
-              {seasons.map((s) => {
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-2">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={`season-skel-${i}`} className="rounded-xl border overflow-hidden">
+                    <Skeleton className="aspect-[16/9] w-full" />
+                    <div className="p-2 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : seasons.length > 0 ? (
+            <div className="space-y-4">
+              {(() => {
+                if (seasons.length === 0) return null
+
+                const activeVal = String(activeSeason ?? seasons[0])
+                const ai = seasons.findIndex((s) => String(s) === activeVal)
+                const idx = ai >= 0 ? ai : 0
+                const prevEnabled = idx > 0
+                const nextEnabled = idx < seasons.length - 1
+
+                function goToSeason(target: SeasonId) {
+                  if (target == null) return
+                  if (String(activeSeason) === String(target)) return
+                  setActiveSeason(target)
+                  replaceSeasonInUrl(target)
+                  const entry = cacheRef.current.get(target)
+                  if (!entry?.fetchedOnce && !entry?.loading) {
+                    void fetchSeasonEpisodes(target, null)
+                  }
+                }
+
+                function slideTo(targetIndex: number) {
+                  const newTarget = seasons[targetIndex]
+                  if (newTarget == null) return
+                  goToSeason(newTarget)
+                }
+
+                const s = activeSeason ?? seasons[0]
                 const entry = seasonCache.get(s)
-                const isActive = String(activeSeason) === String(s)
                 const items = entry?.items ?? []
                 const loading = !!entry?.loading
                 const error = entry?.error
@@ -810,9 +892,85 @@ export default function Page() {
                 const hasMore = entry?.hasMore ?? Boolean(nextToken)
 
                 return (
-                  <TabsContent key={String(s)} value={String(s)} className="mt-4">
+                  <>
+                    <div className="relative">
+                      <Button
+                        variant="ghost"
+                        className="flex items-center justify-center h-8 w-8 p-0 absolute left-0 top-1/2 -translate-y-1/2 z-10 cursor-pointer disabled:cursor-not-allowed"
+                        aria-label="Previous season"
+                        disabled={!prevEnabled}
+                        onClick={() => slideTo(Math.max(0, idx - 1))}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="w-4 h-4"
+                        >
+                          <path
+                            d="M15 18l-6-6 6-6"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            fill="none"
+                          />
+                        </svg>
+                      </Button>
+
+                      <div className="mx-10 flex justify-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="mx-auto font-medium cursor-pointer"
+                              aria-label="Select season"
+                            >
+                              {`Season ${String(s)}/${seasons.length}`}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="center">
+                            {seasons.map((sn) => (
+                              <DropdownMenuItem
+                                key={String(sn)}
+                                className="cursor-pointer"
+                                onClick={() => goToSeason(sn)}
+                                aria-label={`Go to season ${String(sn)}`}
+                              >
+                                {`Season ${String(sn)}`}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        className="flex items-center justify-center h-8 w-8 p-0 absolute right-0 top-1/2 -translate-y-1/2 z-10 cursor-pointer disabled:cursor-not-allowed"
+                        aria-label="Next season"
+                        disabled={!nextEnabled}
+                        onClick={() => slideTo(Math.min(seasons.length - 1, idx + 1))}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="w-4 h-4"
+                        >
+                          <path
+                            d="M9 6l6 6-6 6"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            fill="none"
+                          />
+                        </svg>
+                      </Button>
+                    </div>
+
                     {error ? (
-                      <div className="bg-destructive/10 text-destructive border-destructive rounded-md border px-3 py-2 text-sm flex items-center justify-between">
+                      <div className="bg-destructive/10 text-destructive border-destructive rounded-md border px-3 py-2 text-sm flex items-center justify-between mt-4">
                         <span>{error}</span>
                         <Button
                           variant="outline"
@@ -829,11 +987,17 @@ export default function Page() {
                       const initialLoading = loading && items.length === 0
                       const loadingMore = loading && items.length > 0
 
-                      if (initialLoading && isActive) {
+                      if (initialLoading) {
                         return (
-                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" aria-busy="true">
-                            {Array.from({ length: 12 }).map((_, i) => (
-                              <div key={`ep-skel-${String(s)}-${i}`} className="rounded-xl border overflow-hidden">
+                          <div
+                            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4"
+                            aria-busy="true"
+                          >
+                            {Array.from({ length: EPISODES_PAGE_SIZE }).map((_, i) => (
+                              <div
+                                key={`ep-skel-${String(s)}-${i}`}
+                                className="rounded-xl border overflow-hidden"
+                              >
                                 <Skeleton className="aspect-[16/9] w-full" />
                                 <div className="p-2 space-y-2">
                                   <Skeleton className="h-4 w-3/4" />
@@ -847,7 +1011,10 @@ export default function Page() {
 
                       if (items.length === 0) {
                         return (
-                          <div className="text-sm text-muted-foreground py-8 text-center" aria-live="polite">
+                          <div
+                            className="text-sm text-muted-foreground py-8 text-center"
+                            aria-live="polite"
+                          >
                             Belum ada episode untuk season ini.
                           </div>
                         )
@@ -855,12 +1022,17 @@ export default function Page() {
 
                       return (
                         <>
-                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
                             {items.map((ep) => (
                               <Card key={ep.id} className="p-0 overflow-hidden">
                                 <div className="relative">
                                   <Image
-                                    src={ep.primaryImage?.url ?? ep.image ?? ep.poster ?? 'https://placehold.co/480x270?text=No+Image&font=roboto'}
+                                    src={
+                                      ep.primaryImage?.url ??
+                                      ep.image ??
+                                      ep.poster ??
+                                      'https://placehold.co/480x270?text=No+Image&font=roboto'
+                                    }
                                     alt={ep.titleText?.text ?? ep.title ?? 'Episode thumbnail'}
                                     width={480}
                                     height={270}
@@ -870,13 +1042,23 @@ export default function Page() {
                                   />
                                   <CardContent className="px-3 py-2">
                                     <CardTitle className="text-sm ellipsis whitespace-nowrap overflow-hidden">
-                                      {typeof ep.seasonNumber === 'number' ? `S${ep.seasonNumber}` : ''}
-                                      {typeof ep.episodeNumber === 'number' ? `E${ep.episodeNumber} • ` : ep.seasonNumber ? ' • ' : ''}
+                                      {typeof ep.seasonNumber === 'number'
+                                        ? `S${ep.seasonNumber}`
+                                        : ''}
+                                      {typeof ep.episodeNumber === 'number'
+                                        ? `E${ep.episodeNumber} • `
+                                        : ep.seasonNumber
+                                          ? ' • '
+                                          : ''}
                                       {ep.titleText?.text ?? ep.title ?? 'Untitled'}
                                     </CardTitle>
                                     <CardDescription className="text-xs mt-1 space-x-2">
-                                      {ep.releaseDate ? <span>{formatDateDdMonYyyy(ep.releaseDate)}</span> : null}
-                                      {typeof ep.runtime === 'number' ? <span>{ep.runtime}m</span> : null}
+                                      {ep.releaseDate ? (
+                                        <span>{formatDateDdMonYyyy(ep.releaseDate)}</span>
+                                      ) : null}
+                                      {typeof ep.runtime === 'number' ? (
+                                        <span>{ep.runtime}m</span>
+                                      ) : null}
                                     </CardDescription>
                                   </CardContent>
                                 </div>
@@ -885,9 +1067,15 @@ export default function Page() {
                           </div>
 
                           {loadingMore ? (
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mt-4" aria-busy="true">
+                            <div
+                              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4"
+                              aria-busy="true"
+                            >
                               {Array.from({ length: 6 }).map((_, i) => (
-                                <div key={`ep-skel-more-${String(s)}-${i}`} className="rounded-sm border overflow-hidden">
+                                <div
+                                  key={`ep-skel-more-${String(s)}-${i}`}
+                                  className="rounded-sm border overflow-hidden"
+                                >
                                   <Skeleton className="aspect-[16/9] w-full" />
                                   <div className="p-2 space-y-2">
                                     <Skeleton className="h-4 w-3/4" />
@@ -913,10 +1101,10 @@ export default function Page() {
                         </>
                       )
                     })()}
-                  </TabsContent>
+                  </>
                 )
-              })}
-            </Tabs>
+              })()}
+            </div>
           ) : null}
         </div>
       </SidebarInset>
