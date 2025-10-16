@@ -19,12 +19,21 @@ import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/c
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /**
  * Types
  */
 type SeasonId = number | string
+
+type Person = {
+  id: string
+  displayName?: string
+  alternativeNames?: string[]
+  primaryImage?: { url?: string; width?: number; height?: number }
+  primaryProfessions?: string[]
+}
 
 type TitleDetail = {
   id: string
@@ -40,6 +49,11 @@ type TitleDetail = {
   runtime?: { seconds?: number; minutes?: number }
   runtimeSeconds?: number
   runtimeMinutes?: number
+  rating?: { aggregateRating?: number; voteCount?: number }
+  genres?: string[]
+  directors?: Person[]
+  writers?: Person[]
+  stars?: Person[]
 }
 
 type Episode = {
@@ -104,6 +118,32 @@ function getImageUrlFromDetail(item: TitleDetail): string {
 
 function getYearFromDetail(item: TitleDetail): number | undefined {
   return item.startYear ?? item.releaseYear?.year
+}
+
+function getRuntimeMinutesFromDetail(item: TitleDetail | null): number | undefined {
+  if (!item) return undefined
+  if (typeof item.runtimeMinutes === 'number') return item.runtimeMinutes
+  if (typeof item.runtimeSeconds === 'number') return Math.round(item.runtimeSeconds / 60)
+  if (typeof item.runtime?.minutes === 'number') return item.runtime.minutes
+  if (typeof item.runtime?.seconds === 'number') return Math.round(item.runtime.seconds / 60)
+  return undefined
+}
+
+function formatRuntimeHhMm(minutes?: number): string | undefined {
+  if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes <= 0) return undefined
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h > 0) return `${h}h ${m}m`
+  return `${m}m`
+}
+
+function formatPeopleList(list?: Person[]): string | undefined {
+  if (!Array.isArray(list) || list.length === 0) return undefined
+  const names = list.map((p) => p.displayName).filter((n) => typeof n === 'string' && n.trim().length > 0)
+  if (names.length === 0) return undefined
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
 
 function normalizeEpisode(raw: any): Episode {
@@ -580,12 +620,54 @@ export default function Page() {
                 <Skeleton className="aspect-[2/3] w-full" />
               </div>
               <div className="md:col-span-2 space-y-3">
-                <Skeleton className="h-7 w-2/3" />
-                <Skeleton className="h-4 w-1/3" />
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-4 w-2/3" />
+                {/* Title */}
+                <Skeleton className="h-8 w-2/3" />
+                {/* Year • Runtime • Rating */}
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-4 w-10" />
+                  <Skeleton className="h-4 w-12" />
+                  <div className="flex items-center gap-1">
+                    <Skeleton className="h-4 w-4 rounded-full" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </div>
+                {/* Plot */}
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+
+                {/* Directors / Writers / Stars */}
+                <div className="pt-2 space-y-3">
+                  <div>
+                    <Skeleton className="h-4 w-24" />
+                    <div className="mt-1">
+                      <Skeleton className="h-4 w-2/3" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Skeleton className="h-4 w-16" />
+                    <div className="mt-1">
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Skeleton className="h-4 w-14" />
+                    <div className="mt-1">
+                      <Skeleton className="h-4 w-1/2" />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Genres badges */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-6 w-14 rounded-full" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
               </div>
             </div>
           ) : detail ? (
@@ -603,7 +685,43 @@ export default function Page() {
               </div>
               <div className="md:col-span-2 space-y-2">
                 <h1 className="text-2xl font-semibold leading-tight">{titleText}</h1>
-                {year ? <p className="text-muted-foreground text-sm">{year}</p> : null}
+                {(() => {
+                  const runtimeMin = getRuntimeMinutesFromDetail(detail)
+                  const runtimeStr = formatRuntimeHhMm(runtimeMin)
+                  const agg = detail?.rating?.aggregateRating
+                  const votes = detail?.rating?.voteCount
+                  const showYear = typeof year === 'number'
+                  const showRuntime = !!runtimeStr
+                  const showRating = typeof agg === 'number'
+                  if (!showYear && !showRuntime && !showRating) return null
+                  return (
+                    <div
+                      className="flex items-center gap-3 text-muted-foreground text-sm"
+                      aria-label="Release year, runtime, and rating"
+                    >
+                      {showYear ? <div>{year}</div> : null}
+                      {showRuntime ? <div>{runtimeStr}</div> : null}
+                      {showRating ? (
+                        <div className="flex items-center gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            className="w-4 h-4 text-yellow-500 fill-current"
+                          >
+                            <path d="M12 .587l3.668 7.431L24 9.748l-6 5.848 1.417 8.267L12 19.771 4.583 23.863 6 15.596 0 9.748l8.332-1.73z" />
+                          </svg>
+                          <span>
+                            {agg!.toFixed(1)}/10
+                            {typeof votes === 'number'
+                              ? ` (${new Intl.NumberFormat('en-US').format(votes)} votes)`
+                              : ''}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })()}
                 {/* Plot/Description */}
                 {(() => {
                   const p =
@@ -612,7 +730,45 @@ export default function Page() {
                       : detail.plot && typeof detail.plot === 'object'
                       ? detail.plot.plotText?.plainText
                       : detail.description
-                  return p ? <p className="text-sm leading-relaxed">{p}</p> : null
+
+                  const directorsStr = formatPeopleList(detail?.directors)
+                  const writersStr = formatPeopleList(detail?.writers)
+                  const starsStr = formatPeopleList(detail?.stars)
+
+                  return (
+                    <>
+                      {p ? <p className="text-sm leading-relaxed">{p}</p> : null}
+
+                      {directorsStr ? (
+                        <div className="mt-4">
+                          <p className="text-sm font-semibold">Directors:</p>
+                          <p className="text-sm text-muted-foreground">{directorsStr}</p>
+                        </div>
+                      ) : null}
+
+                      {writersStr ? (
+                        <div>
+                          <p className="text-sm font-semibold">Writers:</p>
+                          <p className="text-sm text-muted-foreground">{writersStr}</p>
+                        </div>
+                      ) : null}
+
+                      {starsStr ? (
+                        <div>
+                          <p className="text-sm font-semibold">Stars:</p>
+                          <p className="text-sm text-muted-foreground">{starsStr}</p>
+                        </div>
+                      ) : null}
+
+                      {Array.isArray(detail?.genres) && detail.genres.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mt-4">
+                          {detail.genres.map((genre) => (
+                            <Badge key={genre} variant="secondary">{genre}</Badge>
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  )
                 })()}
               </div>
             </div>
@@ -632,11 +788,7 @@ export default function Page() {
             <div className="space-y-3" aria-busy="true">
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : seasons.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-8 text-center" aria-live="polite">
-              Season tidak tersedia.
-            </div>
-          ) : (
+          ) : seasons.length > 0 ? (
             <Tabs value={String(activeSeason ?? seasons[0] ?? '')} onValueChange={onTabChange}>
               <div className="overflow-x-auto">
                 <TabsList className="min-w-full">
@@ -655,7 +807,7 @@ export default function Page() {
                 const loading = !!entry?.loading
                 const error = entry?.error
                 const nextToken = entry?.nextPageToken ?? null
-                const hasMore = entry?.hasMore ?? (nextToken ? true : false)
+                const hasMore = entry?.hasMore ?? Boolean(nextToken)
 
                 return (
                   <TabsContent key={String(s)} value={String(s)} className="mt-4">
@@ -765,7 +917,7 @@ export default function Page() {
                 )
               })}
             </Tabs>
-          )}
+          ) : null}
         </div>
       </SidebarInset>
     </SidebarProvider>
