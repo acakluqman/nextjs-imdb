@@ -843,7 +843,7 @@ export default function Page() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4 mt-2">
                 {Array.from({ length: 12 }).map((_, i) => (
                   <div key={`season-skel-${i}`} className="rounded-xl border overflow-hidden">
                     <Skeleton className="aspect-[16/9] w-full" />
@@ -990,7 +990,7 @@ export default function Page() {
                       if (initialLoading) {
                         return (
                           <div
-                            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4"
+                            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4 mt-4"
                             aria-busy="true"
                           >
                             {Array.from({ length: EPISODES_PAGE_SIZE }).map((_, i) => (
@@ -1022,7 +1022,7 @@ export default function Page() {
 
                       return (
                         <>
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4 mt-4">
                             {items.map((ep) => (
                               <Card key={ep.id} className="p-0 overflow-hidden">
                                 <div className="relative">
@@ -1068,10 +1068,10 @@ export default function Page() {
 
                           {loadingMore ? (
                             <div
-                              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-4"
+                              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4 mt-4"
                               aria-busy="true"
                             >
-                              {Array.from({ length: 6 }).map((_, i) => (
+                              {Array.from({ length: 8 }).map((_, i) => (
                                 <div
                                   key={`ep-skel-more-${String(s)}-${i}`}
                                   className="rounded-sm border overflow-hidden"

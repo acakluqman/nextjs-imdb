@@ -6,6 +6,7 @@ import {
   Clapperboard,
   Gamepad2,
   ListVideo,
+  Search,
   Tv,
   TvMinimal,
   TvMinimalPlay,
@@ -26,6 +27,11 @@ import {
 
 const data = {
   navMain: [
+    {
+      title: 'Search',
+      url: '/search',
+      icon: Search,
+    },
     {
       title: 'Movies',
       url: '/imdb?type=movie',

@@ -24,6 +24,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import useInfiniteScroll from '@/hooks/use-infinite-scroll'
 import Link from 'next/link'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 type Imdb = {
   id?: string
@@ -33,6 +39,7 @@ type Imdb = {
   image?: string
   startYear?: number
   releaseYear?: { year?: number }
+  rating?: { aggregateRating?: number; voteCount?: number }
 }
 
 const TYPE_MAP: Record<string, string> = {
@@ -83,11 +90,25 @@ export default function Page() {
   const typeCode = parseTypeCode(rawType) ?? 'MOVIE'
   const selectedType = TYPE_MAP[rawType] ?? 'Movie'
 
+  const SORT_BY_OPTIONS = [
+    'SORT_BY_POPULARITY',
+    'SORT_BY_RELEASE_DATE',
+    'SORT_BY_USER_RATING',
+    'SORT_BY_USER_RATING_COUNT',
+    'SORT_BY_YEAR',
+  ] as const
+  type SortBy = (typeof SORT_BY_OPTIONS)[number]
+  const SORT_ORDER_OPTIONS = ['ASC', 'DESC'] as const
+  type SortOrder = (typeof SORT_ORDER_OPTIONS)[number]
+
+  const [sortBy, setSortBy] = React.useState<SortBy>('SORT_BY_POPULARITY')
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>('ASC')
+
   const fetchTitles = React.useCallback(
     async (pageParam: string | null) => {
       const url = `${process.env.NEXT_PUBLIC_API_URL}/titles?types=${encodeURIComponent(
         typeCode
-      )}&sortBy=SORT_BY_POPULARITY&sortOrder=ASC${pageParam ? `&pageToken=${pageParam}` : ''}`
+      )}&endYear=${new Date().getFullYear()}&sortBy=${sortBy}&sortOrder=${sortOrder}${pageParam ? `&pageToken=${pageParam}` : ''}`
 
       const res = await fetch(url)
       if (!res.ok) {
@@ -99,7 +120,7 @@ export default function Page() {
       const nextPageToken = json?.nextPageToken ?? null
       return { data: Array.isArray(results) ? results : [], nextPageToken }
     },
-    [typeCode]
+    [typeCode, sortBy, sortOrder]
   )
 
   const {
@@ -166,7 +187,73 @@ export default function Page() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-8 gap-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="cursor-pointer" aria-label="Select sort by">
+                    {`Sort by: ${
+                      sortBy === 'SORT_BY_POPULARITY'
+                        ? 'Popularity'
+                        : sortBy === 'SORT_BY_RELEASE_DATE'
+                          ? 'Release Date'
+                          : sortBy === 'SORT_BY_USER_RATING'
+                            ? 'User Rating'
+                            : sortBy === 'SORT_BY_USER_RATING_COUNT'
+                              ? 'User Rating Count'
+                              : 'Year'
+                    }`}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {SORT_BY_OPTIONS.map((opt) => (
+                    <DropdownMenuItem
+                      key={opt}
+                      className="cursor-pointer"
+                      onClick={() => setSortBy(opt)}
+                      aria-label={`Sort by ${opt}`}
+                    >
+                      {opt === 'SORT_BY_POPULARITY'
+                        ? 'Popularity'
+                        : opt === 'SORT_BY_RELEASE_DATE'
+                          ? 'Release Date'
+                          : opt === 'SORT_BY_USER_RATING'
+                            ? 'User Rating'
+                            : opt === 'SORT_BY_USER_RATING_COUNT'
+                              ? 'User Rating Count'
+                              : 'Year'}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="cursor-pointer"
+                    aria-label="Select sort order"
+                  >
+                    {`Order: ${sortOrder === 'ASC' ? 'Ascending' : 'Descending'}`}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {SORT_ORDER_OPTIONS.map((opt) => (
+                    <DropdownMenuItem
+                      key={opt}
+                      className="cursor-pointer"
+                      onClick={() => setSortOrder(opt)}
+                      aria-label={`Sort order ${opt}`}
+                    >
+                      {opt === 'ASC' ? 'Ascending' : 'Descending'}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
             {items.length > 0 ? (
               items.map((item, idx) => {
                 const title = getTitle(item)
@@ -186,6 +273,21 @@ export default function Page() {
                           className="w-full aspect-[2/3] object-cover"
                           loading="lazy"
                         />
+                        {typeof item?.rating?.aggregateRating === 'number' ? (
+                          <div className="absolute left-1.5 top-1.5 z-10">
+                            <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium bg-background/60 backdrop-blur-sm">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                                className="w-3 h-3 text-yellow-500 fill-current"
+                              >
+                                <path d="M12 .587l3.668 7.431L24 9.748l-6 5.848 1.417 8.267L12 19.771 4.583 23.863 6 15.596 0 9.748l8.332-1.73z" />
+                              </svg>
+                              <span>{Number(item.rating.aggregateRating).toFixed(1)}</span>
+                            </span>
+                          </div>
+                        ) : null}
                         <CardContent className="px-3 py-2">
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -195,9 +297,9 @@ export default function Page() {
                             </TooltipTrigger>
                             <TooltipContent>{title}</TooltipContent>
                           </Tooltip>
-                          {year ? (
-                            <CardDescription className="text-xs">{year}</CardDescription>
-                          ) : null}
+                          <CardDescription className="text-xs flex items-center gap-1">
+                            {typeof year === 'number' ? <span>{year}</span> : null}
+                          </CardDescription>
                           <Button
                             variant="outline"
                             className="w-full mt-2"
@@ -227,7 +329,8 @@ export default function Page() {
                   <Skeleton className="aspect-[2/3] w-full" />
                   <div className="p-2">
                     <Skeleton className="h-4 w-3/4 mb-2" />
-                    <Skeleton className="h-3 w-1/2" />
+                    <Skeleton className="h-3 w-1/2 mb-2" />
+                    <Skeleton className="h-8 w-full" />
                   </div>
                 </div>
               ))}
