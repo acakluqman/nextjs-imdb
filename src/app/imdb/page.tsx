@@ -16,15 +16,16 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-      import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription,CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import useInfiniteScroll from '@/hooks/use-infinite-scroll'
+import Link from 'next/link'
 
-type ImdbTitle = {
+type Imdb = {
   id?: string
   primaryTitle?: string
   titleText?: { text?: string }
@@ -60,11 +61,11 @@ function parseTypeCode(input: string): string | undefined {
   return TYPE_CODE_MAP[input]
 }
 
-function getTitle(item: ImdbTitle) {
+function getTitle(item: Imdb) {
   return item.primaryTitle ?? item.titleText?.text ?? 'Untitled'
 }
 
-function getImageUrl(item: ImdbTitle) {
+function getImageUrl(item: Imdb) {
   return (
     item.primaryImage?.url ??
     item.image ??
@@ -72,7 +73,7 @@ function getImageUrl(item: ImdbTitle) {
   )
 }
 
-function getYear(item: ImdbTitle) {
+function getYear(item: Imdb) {
   return item.startYear ?? item.releaseYear?.year
 }
 
@@ -107,7 +108,7 @@ export default function Page() {
     error,
     hasMore,
     fetchData,
-  } = useInfiniteScroll<ImdbTitle>({
+  } = useInfiniteScroll<Imdb>({
     fetchFunction: fetchTitles,
     initialPageParam: null,
   })
@@ -173,44 +174,46 @@ export default function Page() {
                 const year = getYear(item)
 
                 return (
-                  <Card key={item.id ?? `${title}-${idx}`} className="p-0 overflow-hidden">
-                    <div className="relative">
-                      <Image
-                        src={imageUrl}
-                        alt={title}
-                        width={500}
-                        height={750}
-                        sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                        className="w-full aspect-[2/3] object-cover"
-                        loading="lazy"
-                      />
-                      <CardContent className="px-3 py-2">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <CardTitle className="text-sm ellipsis whitespace-nowrap overflow-hidden">
-                              {title}
-                            </CardTitle>
-                          </TooltipTrigger>
-                          <TooltipContent>{title}</TooltipContent>
-                        </Tooltip>
-                        {year ? (
-                          <CardDescription className="text-xs">{year}</CardDescription>
-                        ) : null}
-                        <Button
-                          variant="outline"
-                          className="w-full mt-2"
-                          onClick={() =>
-                            toast.success(`${title} added to watchlist.`, {
-                              duration: 3000,
-                            })
-                          }
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Watchlist
-                        </Button>
-                      </CardContent>
-                    </div>
-                  </Card>
+                  <Link key={item.id ?? `${title}-${idx}`} href={`/imdb/${item.id}`}>
+                    <Card className="p-0 overflow-hidden">
+                      <div className="relative">
+                        <Image
+                          src={imageUrl}
+                          alt={title}
+                          width={500}
+                          height={750}
+                          sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                          className="w-full aspect-[2/3] object-cover"
+                          loading="lazy"
+                        />
+                        <CardContent className="px-3 py-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <CardTitle className="text-sm ellipsis whitespace-nowrap overflow-hidden">
+                                {title}
+                              </CardTitle>
+                            </TooltipTrigger>
+                            <TooltipContent>{title}</TooltipContent>
+                          </Tooltip>
+                          {year ? (
+                            <CardDescription className="text-xs">{year}</CardDescription>
+                          ) : null}
+                          <Button
+                            variant="outline"
+                            className="w-full mt-2"
+                            onClick={() =>
+                              toast.success(`${title} added to watchlist.`, {
+                                duration: 3000,
+                              })
+                            }
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Watchlist
+                          </Button>
+                        </CardContent>
+                      </div>
+                    </Card>
+                  </Link>
                 )
               })
             ) : !loading && !error ? (
